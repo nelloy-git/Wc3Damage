@@ -7,7 +7,7 @@ local Wc3Utils = LibManager.getDepency('Wc3Utils')
 local isTypeErr = Wc3Utils.isTypeErr or error('')
 
 ---@type DamageTypeClass
-local DamageType = require('DamageType') or error('')
+local DamageType = require('Type') or error('')
 
 --========
 -- Module
