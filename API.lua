@@ -1,33 +1,26 @@
----@class DamageLib
-local DamageLibAPI = {}
-Lib.start('Damage', {
-    Handle = Lib.load(LibList.HandleLib) or error(''),
-    Types = Lib.load(LibList.TypesLib) or error(''),
-    Utils = Lib.load(LibList.UtilsLib) or error('')
-})
-local path = Lib.curPath()
+LibManager.startLib('Wc3Damage')
+
+--===========
+-- Depencies
+--===========
+
+LibManager.addDepency('Wc3Utils', 'https://github.com/nelloy-git/Wc3Utils.git')
 
 --=====
 -- API
 --=====
 
+---@class Wc3Damage
+local Wc3Damage = {}
+
 ---@type DamageEvent
-local DamageEvent = require(path..'Event') or error('')
-DamageLibAPI.addAction = DamageEvent.addAction or error('')
-DamageLibAPI.removeAction = DamageEvent.removeAction or error('')
+local DamageEvent = require('Event') or error('')
+Wc3Damage.addAction = DamageEvent.addAction or error('')
+Wc3Damage.removeAction = DamageEvent.removeAction or error('')
 ---@type DamageFunctions
-local DamageFunctions = require(path..'Functions') or error('')
-DamageLibAPI.dealAtk = DamageFunctions.dealAtk or error('')
-DamageLibAPI.dealPhys = DamageFunctions.dealPhys or error('')
-DamageLibAPI.dealMagic = DamageFunctions.dealMagic or error('')
-DamageLibAPI.dealChaos = DamageFunctions.dealChaos or error('')
----@type DamageSettings
-local Settings = require(path..'Settings')
-DamageLibAPI.Atk = Settings.Atk
-DamageLibAPI.Magic = Settings.Magic
-DamageLibAPI.Phys = Settings.Phys
-DamageLibAPI.Chaos = Settings.Chaos
+local DamageFunctions = require('Functions') or error('')
+Wc3Damage.damage = DamageFunctions.damageUnit
 
-Lib.finish()
+LibManager.endLib()
 
-return DamageLibAPI
+return Wc3Damage

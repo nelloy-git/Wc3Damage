@@ -2,23 +2,14 @@
 -- Include
 --=========
 
-local lib_path = Lib.curPath()
-local lib_dep = Lib.curDepencies()
+---@type Wc3Utils
+local Wc3Utils = LibManager.getDepency('Wc3Utils')
+local ActionList = Wc3Utils.ActionList or error('')
+local isTypeErr = Wc3Utils.isTypeErr or error('')
+local pairsByKeys = Wc3Utils.pairsByKeys or error('')
 
----@type TypesLib
-local TypesLib = lib_dep.Types or error('')
-local DamageType = TypesLib.DamageTypeEnum or error('')
-local isDamageType = TypesLib.isDamageType
----@type HandleLib
-local HandleLib = lib_dep.Handle or error('')
-local Trigger = HandleLib.Trigger or error('')
-local Unit = HandleLib.Unit or error('')
----@type UtilsLib
-local UtilsLib = lib_dep.Utils or error('')
-local ActionList = UtilsLib.ActionList or error('')
-local isTypeErr = UtilsLib.isTypeErr or error('')
-local Log = UtilsLib.Log or error('')
-local pairsByKeys = UtilsLib.pairsByKeys or error('')
+---@type DamageTypeClass
+local DamageType = require('Type') or error('')
 
 --========
 -- Module
@@ -27,76 +18,72 @@ local pairsByKeys = UtilsLib.pairsByKeys or error('')
 ---@class DamageEvent
 local DamageEvent = {}
 
-DamageEvent.callbacks = {}
-for _, dmg_type in pairs(DamageType) do
-    DamageEvent.callbacks[dmg_type] = {}
+DamageEvent.priority_list = {}
+for name, dmg_type in pairs(DamageType.enum) do
+    DamageEvent.priority_list[dmg_type] = {}
 end
 
----@alias DamageEventCallback fun(dmg:number, dmg_type:damagetype, targ:Unit, src:Unit):number
+---@alias DamageModificator fun(dmg:number, dmg_type:damagetype, targ:Unit, src:Unit):number
 
 --- Actions with same priority can will be executed in random order.
----@param dmg_type damagetype
+---@param dmg_type DamageType
 ---@param priority integer
----@param callback DamageEventCallback
+---@param modificator DamageModificator
 ---@return Action
-function DamageEvent.addAction(dmg_type, priority, callback)
-    if not isDamageType(dmg_type) then
-        Log:err('variable \'dmg_type\' is not of type damagetype', 2)
-    end
+function DamageEvent.addAction(dmg_type, priority, modificator)
+    isTypeErr(dmg_type, DamageType, 'dmg_type')
     isTypeErr(priority, 'number', 'priority')
-    isTypeErr(callback, 'function', 'callback')
+    isTypeErr(modificator, 'function', 'modificator')
 
-    local action_lists_by_priority = DamageEvent.callbacks[dmg_type]
-    if not action_lists_by_priority[priority] then
-        action_lists_by_priority[priority] = ActionList.new(DamageEvent)
+    local list = DamageEvent.priority_list[dmg_type]
+    if not list[priority] then
+        list[priority] = ActionList.new(DamageEvent)
     end
-    local actions = action_lists_by_priority[priority]
-    return actions:add(callback)
+    local actions = list[priority]
+    return actions:add(modificator)
 end
 
 ---@param action Action
 ---@return boolean
 function DamageEvent.removeAction(action)
-    for dmg_type, action_lists_by_priority in pairs(DamageEvent.callbacks) do
-        for priority, actions in pairs(action_lists_by_priority) do
+    for dmg_type, list in pairs(DamageEvent.priority_list) do
+        for priority, actions in pairs(list) do
             if actions:remove(action) then return true end
         end
     end
     return false
 end
 
----@param dmg number
----@param dmg_type damagetype
----@param targ Unit
----@param src Unit
----@return number
-local function runActions(dmg, dmg_type, targ, src)
-    local action_lists_by_priority = DamageEvent.callbacks[dmg_type]
+local function runActions()
+    local dmg = GetEventDamage()
+    local dmg_type = BlzGetEventDamageType()
+    local targ = BlzGetEventDamageTarget()
+    local src = GetEventDamageSource()
 
-    for _, actions in pairsByKeys(action_lists_by_priority, function(k1, k2) return k1 > k2 end) do
+    local function sort(k1, k2)
+        return k1 > k2
+    end
+
+    local list = DamageEvent.priority_list[dmg_type]
+    for priority, actions in pairsByKeys(list, sort) do
+        -- Apply damage modificators one by one.
         local count = actions:count()
         for i = 1, count do
             dmg = actions:get(i):run(dmg, dmg_type, targ, src)
         end
     end
 
-    return dmg
+    BlzSetEventDamage(dmg < 0 and 0 or dmg)
 end
 
-if not IsCompiletime() then
-    local trigger = Trigger.new()
-    for i = 0, bj_MAX_PLAYER_SLOTS - 1 do
-        trigger:addPlayerUnitEvent(EVENT_PLAYER_UNIT_DAMAGING, Player(i))
-    end
-    trigger:addAction(function()
-        local dmg = GetEventDamage()
-        local dmg_type = BlzGetEventDamageType()
-        local targ = Unit.getLinked(BlzGetEventDamageTarget())
-        local src = Unit.getLinked(GetEventDamageSource())
+if IsGame() then
+    local trigger = CreateTrigger()
+    TriggerAddAction(trigger, runActions)
 
-        dmg = runActions(dmg, dmg_type, targ, src)
-        BlzSetEventDamage(dmg < 0 and 0 or dmg)
-    end)
+    for i = 0, bj_MAX_PLAYER_SLOTS - 1 do
+        local pl = Player(i)
+        TriggerRegisterPlayerUnitEvent(trigger, pl, EVENT_PLAYER_UNIT_DAMAGING)
+    end
 end
 
 return DamageEvent
