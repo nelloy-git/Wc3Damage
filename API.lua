@@ -4,6 +4,7 @@ LibManager.startLib('Wc3Damage')
 -- Depencies
 --===========
 
+LibManager.addDepency('LuaClass', 'https://github.com/nelloy-git/LuaClass.git')
 LibManager.addDepency('Wc3Utils', 'https://github.com/nelloy-git/Wc3Utils.git')
 
 --=====
