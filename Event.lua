@@ -18,40 +18,37 @@ local DamageType = require('Type') or error('')
 ---@class DamageEvent
 local DamageEvent = {}
 
-DamageEvent.priority_list = {}
-for name, dmg_type in pairs(DamageType.enum) do
-    DamageEvent.priority_list[dmg_type] = {}
-end
+local modificators = {}
 
----@alias DamageModificator fun(dmg:number, dmg_type:damagetype, targ:Unit, src:Unit):number
+---@alias DamageModificator fun(dmg:number, dmg_type:damagetype, targ:unit, src:unit):number
 
 --- Actions with same priority can will be executed in random order.
----@param dmg_type DamageType
----@param priority integer
+---@param priority number
 ---@param modificator DamageModificator
 ---@return Action
-function DamageEvent.addAction(dmg_type, priority, modificator)
-    isTypeErr(dmg_type, DamageType, 'dmg_type')
+function DamageEvent.addAction(priority, modificator)
     isTypeErr(priority, 'number', 'priority')
     isTypeErr(modificator, 'function', 'modificator')
 
-    local list = DamageEvent.priority_list[dmg_type]
-    if not list[priority] then
-        list[priority] = ActionList.new(DamageEvent)
+    if not modificators[priority] then
+        modificators[priority] = ActionList.new(DamageEvent)
     end
-    local actions = list[priority]
-    return actions:add(modificator)
+    return modificators[priority]:add(modificator)
 end
 
 ---@param action Action
 ---@return boolean
 function DamageEvent.removeAction(action)
-    for dmg_type, list in pairs(DamageEvent.priority_list) do
-        for priority, actions in pairs(list) do
-            if actions:remove(action) then return true end
+    for priority, list in pairs(modificators) do
+        if list:remove(action) then
+            return true
         end
     end
     return false
+end
+
+local function sort(k1, k2)
+    return k1 > k2
 end
 
 local function runActions()
@@ -60,16 +57,11 @@ local function runActions()
     local targ = BlzGetEventDamageTarget()
     local src = GetEventDamageSource()
 
-    local function sort(k1, k2)
-        return k1 > k2
-    end
-
-    local list = DamageEvent.priority_list[dmg_type]
-    for priority, actions in pairsByKeys(list, sort) do
+    for priority, list in pairsByKeys(modificators, sort) do
         -- Apply damage modificators one by one.
-        local count = actions:count()
+        local count = list:count()
         for i = 1, count do
-            dmg = actions:get(i):run(dmg, dmg_type, targ, src)
+            dmg = list:get(i):run(dmg, dmg_type, targ, src)
         end
     end
 
