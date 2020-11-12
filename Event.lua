@@ -8,8 +8,8 @@ local ActionList = Wc3Utils.ActionList or error('')
 local isTypeErr = Wc3Utils.isTypeErr or error('')
 local pairsByKeys = Wc3Utils.pairsByKeys or error('')
 
----@type DamageTypeClass
-local DamageType = require('Type') or error('')
+---@type DamageShieldClass
+local Shield = require('Shield') or error('')
 
 --========
 -- Module
@@ -52,8 +52,8 @@ local function sort(k1, k2)
 end
 
 local function runActions()
-    local dmg = GetEventDamage()
     local dmg_type = BlzGetEventDamageType()
+    local dmg = GetEventDamage()
     local targ = BlzGetEventDamageTarget()
     local src = GetEventDamageSource()
 
@@ -65,6 +65,7 @@ local function runActions()
         end
     end
 
+    dmg = Shield.consumeDamage(dmg, targ, dmg_type)
     BlzSetEventDamage(dmg < 0 and 0 or dmg)
 end
 
